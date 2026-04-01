@@ -14,12 +14,18 @@ export default function Settings() {
   const [editingStoreProduct, setEditingStoreProduct] = useState<any>(null);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   
+  const logoUrlRef = useRef<HTMLInputElement>(null);
+  const pulpLogoUrlRef = useRef<HTMLInputElement>(null);
+  const pulpLogoSecondaryUrlRef = useRef<HTMLInputElement>(null);
+  const pulpLogoCircularUrlRef = useRef<HTMLInputElement>(null);
+  const partnerLogoUrlRef = useRef<HTMLInputElement>(null);
+
   const fileInputRefs = {
-    logoUrl: useRef<HTMLInputElement>(null),
-    pulpLogoUrl: useRef<HTMLInputElement>(null),
-    pulpLogoSecondaryUrl: useRef<HTMLInputElement>(null),
-    pulpLogoCircularUrl: useRef<HTMLInputElement>(null),
-    partnerLogoUrl: useRef<HTMLInputElement>(null),
+    logoUrl: logoUrlRef,
+    pulpLogoUrl: pulpLogoUrlRef,
+    pulpLogoSecondaryUrl: pulpLogoSecondaryUrlRef,
+    pulpLogoCircularUrl: pulpLogoCircularUrlRef,
+    partnerLogoUrl: partnerLogoUrlRef,
   };
 
   const handleFileUpload = (field: keyof typeof fileInputRefs) => {
@@ -66,7 +72,7 @@ export default function Settings() {
   };
 
   const handleDeleteNews = (id: string) => {
-    const newNews = config.news.filter(n => n.id !== id);
+    const newNews = (config.news || []).filter(n => n.id !== id);
     updateConfig({ news: newNews });
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
