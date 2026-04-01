@@ -16,11 +16,15 @@ async function startServer() {
   // Rota de login para o administrador
   app.post("/api/login", (req, res) => {
     const { password } = req.body;
-    const adminPassword = process.env.ADMIN_PASSWORD || "apprv2026";
+    const adminPassword = (process.env.ADMIN_PASSWORD || "apprv2026").trim();
     
-    if (password === adminPassword) {
+    console.log(`Tentativa de login recebida. Senha fornecida: "${password}", Senha esperada: "${adminPassword}"`);
+    
+    if (password && password.trim() === adminPassword) {
+      console.log("Login bem-sucedido!");
       res.json({ success: true, message: "Acesso autorizado." });
     } else {
+      console.log("Falha no login: Senha incorreta.");
       res.status(401).json({ success: false, message: "Senha incorreta." });
     }
   });
