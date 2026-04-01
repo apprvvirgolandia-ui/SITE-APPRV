@@ -1,9 +1,12 @@
 import { Link } from 'react-router-dom';
-import { MapPin, Phone, Mail, FileText, MessageCircle, Facebook, Instagram } from 'lucide-react';
+import { MapPin, Phone, Mail, FileText, MessageCircle, Facebook, Instagram, Lock, Unlock } from 'lucide-react';
+import { useState } from 'react';
 import { useSettings } from '../context/SettingsContext';
+import LoginModal from './LoginModal';
 
 export default function Footer() {
-  const { config } = useSettings();
+  const { config, isAdmin, setIsAdmin } = useSettings();
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
   
   const whatsappUrl = config.whatsapp ? `https://wa.me/${config.whatsapp}` : null;
   
@@ -113,13 +116,27 @@ export default function Footer() {
               <li><Link to="/produtos" className="hover:text-accent transition-colors">Polpas Virgo Fruit</Link></li>
               <li><Link to="/loja" className="hover:text-accent transition-colors">Loja do Associado</Link></li>
               <li><Link to="/contato" className="hover:text-accent transition-colors">Fale Conosco</Link></li>
+              <li><Link to="/admin" className="text-stone-700 hover:text-stone-500 transition-colors">Área do Administrador</Link></li>
             </ul>
           </div>
         </div>
         
-        <div className="border-t border-stone-800 pt-8 text-center text-xs">
+        <div className="border-t border-stone-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
           <p>&copy; {new Date().getFullYear()} Associação de Pequenos Produtores Rurais de Virgolândia. Todos os direitos reservados.</p>
+          <button 
+            onClick={() => isAdmin ? setIsAdmin(false) : setIsLoginOpen(true)}
+            className="text-stone-500 hover:text-amber-500 transition-all p-2 flex items-center gap-2 group"
+            title={isAdmin ? 'Sair do Modo Admin' : 'Área Restrita'}
+          >
+            <span className="opacity-0 group-hover:opacity-100 transition-opacity">Painel Administrativo</span>
+            {isAdmin ? <Unlock size={16} className="text-amber-500" /> : <Lock size={16} />}
+          </button>
         </div>
+
+        <LoginModal 
+          isOpen={isLoginOpen} 
+          onClose={() => setIsLoginOpen(false)} 
+        />
       </div>
     </footer>
   );

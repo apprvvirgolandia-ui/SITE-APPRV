@@ -4,7 +4,7 @@ import { ShoppingBag, CheckCircle2, Store as StoreIcon, Edit2, X, Save, Plus, Tr
 import { useSettings } from '../context/SettingsContext';
 
 export default function Store() {
-  const { config, updateConfig } = useSettings();
+  const { config, updateConfig, isAdmin } = useSettings();
   const [isEditing, setIsEditing] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
 
@@ -36,15 +36,17 @@ export default function Store() {
           <p className="text-lg text-stone-600 max-w-2xl mx-auto">
             Produtos artesanais e frescos produzidos diretamente pelos nossos associados da APPRV.
           </p>
-          <button 
-            onClick={() => setIsEditing(!isEditing)}
-            className={`mt-8 px-6 py-2 rounded-full font-bold transition-all flex items-center gap-2 mx-auto ${
-              isEditing ? 'bg-stone-800 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-            }`}
-          >
-            <Edit2 size={18} />
-            {isEditing ? 'Sair do Modo de Edição' : 'Gerenciar Loja'}
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={() => setIsEditing(!isEditing)}
+              className={`mt-8 px-6 py-2 rounded-full font-bold transition-all flex items-center gap-2 mx-auto ${
+                isEditing ? 'bg-stone-800 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+              }`}
+            >
+              <Edit2 size={18} />
+              {isEditing ? 'Sair do Modo de Edição' : 'Gerenciar Loja'}
+            </button>
+          )}
         </div>
 
         {/* Store Highlight */}

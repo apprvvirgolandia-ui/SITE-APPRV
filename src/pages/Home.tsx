@@ -190,6 +190,21 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Partners Section */}
+      <section className="py-16 bg-stone-50 border-t border-stone-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h3 className="text-center text-stone-400 font-bold uppercase tracking-widest text-sm mb-12">Nossos Parceiros e Apoiadores</h3>
+          <div className="flex flex-wrap justify-center items-center gap-12 md:gap-24 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Logo_EMATER-MG.png/1200px-Logo_EMATER-MG.png" alt="Emater-MG" className="h-12 object-contain" referrerPolicy="no-referrer" />
+            <img src="https://upload.wikimedia.org/wikipedia/pt/thumb/2/2a/Logo_Sebrae.svg/1200px-Logo_Sebrae.svg.png" alt="Sebrae" className="h-12 object-contain" referrerPolicy="no-referrer" />
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Logo_Senar.png/1200px-Logo_Senar.png" alt="Senar" className="h-12 object-contain" referrerPolicy="no-referrer" />
+            {config.partnerLogoUrl && (
+              <img src={config.partnerLogoUrl} alt="Parceiro Local" className="h-12 object-contain" referrerPolicy="no-referrer" />
+            )}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

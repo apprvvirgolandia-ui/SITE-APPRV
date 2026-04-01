@@ -25,7 +25,7 @@ export default function App() {
               <Route path="/produtos" element={<Products />} />
               <Route path="/loja" element={<Store />} />
               <Route path="/contato" element={<Contact />} />
-              <Route path="/configuracoes" element={<Settings />} />
+              <Route path="/admin" element={<Settings />} />
             </Routes>
           </main>
           <Footer />

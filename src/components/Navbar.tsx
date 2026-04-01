@@ -5,7 +5,7 @@ import { useSettings } from '../context/SettingsContext';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const { config } = useSettings();
+  const { config, isAdmin } = useSettings();
 
   const navLinks = [
     { name: 'Início', path: '/' },
@@ -50,13 +50,15 @@ export default function Navbar() {
                 {link.name}
               </Link>
             ))}
-            <Link 
-              to="/configuracoes" 
-              className="p-2 text-stone-400 hover:text-primary transition-colors"
-              title="Configurações"
-            >
-              <SettingsIcon size={20} />
-            </Link>
+            {isAdmin && (
+              <Link 
+                to="/admin" 
+                className="p-2 text-stone-400 hover:text-primary transition-colors"
+                title="Painel Admin"
+              >
+                <SettingsIcon size={20} />
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}

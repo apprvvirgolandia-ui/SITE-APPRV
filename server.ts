@@ -13,6 +13,18 @@ async function startServer() {
   // Middleware para JSON
   app.use(express.json());
 
+  // Rota de login para o administrador
+  app.post("/api/login", (req, res) => {
+    const { password } = req.body;
+    const adminPassword = process.env.ADMIN_PASSWORD || "apprv2026";
+    
+    if (password === adminPassword) {
+      res.json({ success: true, message: "Acesso autorizado." });
+    } else {
+      res.status(401).json({ success: false, message: "Senha incorreta." });
+    }
+  });
+
   // Exemplo de rota de API que usa variáveis de ambiente privadas
   // Estas variáveis (process.env) NÃO são enviadas para o navegador
   app.get("/api/config", (req, res) => {

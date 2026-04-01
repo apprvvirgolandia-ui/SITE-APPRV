@@ -42,6 +42,8 @@ interface SiteConfig {
 
 interface SettingsContextType {
   config: SiteConfig;
+  isAdmin: boolean;
+  setIsAdmin: (isAdmin: boolean) => void;
   updateConfig: (newConfig: Partial<SiteConfig>) => void;
   resetConfig: () => void;
 }
@@ -49,6 +51,10 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
+  const [isAdmin, setIsAdmin] = useState(() => {
+    return localStorage.getItem('is_admin') === 'true';
+  });
+
   const [config, setConfig] = useState<SiteConfig>(() => {
     const saved = localStorage.getItem('site_config');
     if (saved) {
@@ -68,6 +74,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('site_config', JSON.stringify(config));
   }, [config]);
 
+  useEffect(() => {
+    localStorage.setItem('is_admin', isAdmin.toString());
+  }, [isAdmin]);
+
   const updateConfig = (newConfig: Partial<SiteConfig>) => {
     setConfig(prev => ({ ...prev, ...newConfig }));
   };
@@ -77,7 +87,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <SettingsContext.Provider value={{ config, updateConfig, resetConfig }}>
+    <SettingsContext.Provider value={{ config, isAdmin, setIsAdmin, updateConfig, resetConfig }}>
       {children}
     </SettingsContext.Provider>
   );
