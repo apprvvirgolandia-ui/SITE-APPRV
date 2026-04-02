@@ -18,13 +18,15 @@ async function startServer() {
     const { password } = req.body;
     const adminPassword = (process.env.ADMIN_PASSWORD || "apprv2026").trim();
     
-    console.log(`Tentativa de login recebida. Senha fornecida: "${password}", Senha esperada: "${adminPassword}"`);
+    console.log(`Tentativa de login:`);
+    console.log(`- Senha fornecida: "${password}" (comprimento: ${password?.length})`);
+    console.log(`- Senha esperada: "${adminPassword}" (comprimento: ${adminPassword?.length})`);
     
     if (password && password.trim() === adminPassword) {
-      console.log("Login bem-sucedido!");
+      console.log("Resultado: Login bem-sucedido!");
       res.json({ success: true, message: "Acesso autorizado." });
     } else {
-      console.log("Falha no login: Senha incorreta.");
+      console.log("Resultado: Falha no login (Senha incorreta).");
       res.status(401).json({ success: false, message: "Senha incorreta." });
     }
   });
