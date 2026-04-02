@@ -1,18 +1,33 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Upload, Save, RotateCcw, CheckCircle2, AlertCircle, Plus, Trash2, Edit2, X, Lock, ShieldAlert } from 'lucide-react';
+import { Upload, Save, RotateCcw, CheckCircle2, AlertCircle, Plus, Trash2, Edit2, X, Lock, ShieldAlert, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 import { Link } from 'react-router-dom';
 import LoginModal from '../components/LoginModal';
+import { storage } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export default function Settings() {
-  const { config, updateConfig, resetConfig, isAdmin } = useSettings();
+  const { config, updateConfig, resetConfig, isAdmin, logout } = useSettings();
+  const [renderError, setRenderError] = useState<Error | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingNews, setEditingNews] = useState<any>(null);
   const [editingStoreProduct, setEditingStoreProduct] = useState<any>(null);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [passwordHint, setPasswordHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetch('/api/admin/password-hint')
+        .then(res => res.json())
+        .then(data => setPasswordHint(data.hint))
+        .catch(err => console.error('Error fetching password hint:', err));
+    }
+  }, [isAdmin]);
+  
+  const [isUploading, setIsUploading] = useState<string | null>(null);
   
   const logoUrlRef = useRef<HTMLInputElement>(null);
   const pulpLogoUrlRef = useRef<HTMLInputElement>(null);
@@ -28,23 +43,43 @@ export default function Settings() {
     partnerLogoUrl: partnerLogoUrlRef,
   };
 
-  const handleFileUpload = (field: keyof typeof fileInputRefs) => {
+  const handleFileUpload = async (field: keyof typeof fileInputRefs) => {
     const file = fileInputRefs[field].current?.files?.[0];
     if (file) {
-      // Check file size (localStorage limit is ~5MB total)
-      if (file.size > 1024 * 1024) {
-        setError('O arquivo é muito grande (máximo 1MB para armazenamento local). Para arquivos maiores, recomendo configurar o Firebase.');
-        return;
-      }
+      setIsUploading(field);
+      setError(null);
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        updateConfig({ [field]: reader.result as string });
+      try {
+        const storageRef = ref(storage, `site/${field}_${Date.now()}`);
+        const snapshot = await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(snapshot.ref);
+        
+        updateConfig({ [field]: downloadURL });
         setIsSaved(true);
-        setError(null);
         setTimeout(() => setIsSaved(false), 3000);
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('Upload error:', err);
+        setError('Erro ao fazer upload da imagem para o Firebase.');
+      } finally {
+        setIsUploading(null);
+      }
+    }
+  };
+
+  const handleItemImageUpload = async (file: File, callback: (url: string) => void) => {
+    setIsUploading('item');
+    setError(null);
+
+    try {
+      const storageRef = ref(storage, `items/${Date.now()}_${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      callback(downloadURL);
+    } catch (err) {
+      console.error('Item upload error:', err);
+      setError('Erro ao fazer upload da imagem.');
+    } finally {
+      setIsUploading(null);
     }
   };
 
@@ -132,7 +167,42 @@ export default function Settings() {
     setTimeout(() => setIsSaved(false), 3000);
   };
 
-  if (!isAdmin) {
+  // Catch rendering errors
+  if (renderError) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border border-red-100">
+          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <AlertCircle size={32} />
+          </div>
+          <h2 className="text-xl font-bold text-stone-900 mb-2">Ops! Algo deu errado</h2>
+          <p className="text-stone-600 mb-6 text-sm">
+            Ocorreu um erro ao carregar as configurações. Isso pode ser devido a dados corrompidos no navegador.
+          </p>
+          <div className="flex flex-col gap-2">
+            <button 
+              onClick={() => {
+                localStorage.clear();
+                window.location.reload();
+              }}
+              className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-all"
+            >
+              Limpar Tudo e Recarregar
+            </button>
+            <button 
+              onClick={() => setRenderError(null)}
+              className="text-stone-500 hover:text-stone-700 text-sm font-medium"
+            >
+              Tentar Novamente
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  try {
+    if (!isAdmin) {
     return (
       <div className="min-h-screen bg-stone-900 flex items-center justify-center p-4">
         <motion.div 
@@ -153,6 +223,15 @@ export default function Settings() {
               className="bg-stone-900 text-white px-8 py-4 rounded-2xl font-bold hover:bg-stone-800 transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2"
             >
               <Lock size={18} /> Fazer Login
+            </button>
+            <button 
+              onClick={() => {
+                localStorage.clear();
+                window.location.reload();
+              }}
+              className="text-stone-500 hover:text-stone-700 py-2 text-xs font-medium transition-colors flex items-center justify-center gap-1"
+            >
+              <RotateCcw size={12} /> Limpar Cache e Tentar Novamente
             </button>
             <Link 
               to="/" 
@@ -186,7 +265,7 @@ export default function Settings() {
               <button 
                 key={tab}
                 onClick={() => {
-                  const id = tab.toLowerCase().replace(' ', '-');
+                  const id = tab.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(' ', '-');
                   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
                 }}
                 className="px-4 py-2 bg-white border border-stone-200 rounded-full text-xs font-bold text-stone-600 hover:border-primary hover:text-primary transition-all shadow-sm"
@@ -194,6 +273,12 @@ export default function Settings() {
                 {tab}
               </button>
             ))}
+            <button 
+              onClick={logout}
+              className="px-4 py-2 bg-red-50 border border-red-100 rounded-full text-xs font-bold text-red-600 hover:bg-red-100 transition-all shadow-sm flex items-center gap-2"
+            >
+              <RotateCcw size={12} /> Sair
+            </button>
           </div>
         </div>
 
@@ -270,10 +355,11 @@ export default function Settings() {
                     />
                     <button 
                       onClick={() => fileInputRefs.logoUrl.current?.click()}
-                      className="flex-grow flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl hover:bg-stone-800 transition-colors"
+                      disabled={isUploading === 'logoUrl'}
+                      className="flex-grow flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl hover:bg-stone-800 transition-colors disabled:bg-stone-400"
                     >
-                      <Upload size={18} />
-                      Escolher Imagem
+                      {isUploading === 'logoUrl' ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
+                      {isUploading === 'logoUrl' ? 'Enviando...' : 'Escolher Imagem'}
                     </button>
                   </div>
                 </div>
@@ -306,10 +392,11 @@ export default function Settings() {
                   <label className="block text-sm font-bold text-stone-700 mb-2 uppercase tracking-wider">Upload de Arquivo</label>
                   <button 
                     onClick={() => fileInputRefs.pulpLogoUrl.current?.click()}
-                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl hover:bg-stone-800 transition-colors"
+                    disabled={isUploading === 'pulpLogoUrl'}
+                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl hover:bg-stone-800 transition-colors disabled:bg-stone-400"
                   >
-                    <Upload size={18} />
-                    Escolher Imagem
+                    {isUploading === 'pulpLogoUrl' ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
+                    {isUploading === 'pulpLogoUrl' ? 'Enviando...' : 'Escolher Imagem'}
                   </button>
                   <input 
                     type="file" 
@@ -347,10 +434,11 @@ export default function Settings() {
                   <label className="block text-sm font-bold text-stone-700 mb-2 uppercase tracking-wider">Upload de Arquivo</label>
                   <button 
                     onClick={() => fileInputRefs.pulpLogoSecondaryUrl.current?.click()}
-                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl hover:bg-stone-800 transition-colors"
+                    disabled={isUploading === 'pulpLogoSecondaryUrl'}
+                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl hover:bg-stone-800 transition-colors disabled:bg-stone-400"
                   >
-                    <Upload size={18} />
-                    Escolher Imagem
+                    {isUploading === 'pulpLogoSecondaryUrl' ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
+                    {isUploading === 'pulpLogoSecondaryUrl' ? 'Enviando...' : 'Escolher Imagem'}
                   </button>
                   <input 
                     type="file" 
@@ -388,10 +476,11 @@ export default function Settings() {
                   <label className="block text-sm font-bold text-stone-700 mb-2 uppercase tracking-wider">Upload de Arquivo</label>
                   <button 
                     onClick={() => fileInputRefs.pulpLogoCircularUrl.current?.click()}
-                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl hover:bg-stone-800 transition-colors"
+                    disabled={isUploading === 'pulpLogoCircularUrl'}
+                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl hover:bg-stone-800 transition-colors disabled:bg-stone-400"
                   >
-                    <Upload size={18} />
-                    Escolher Imagem
+                    {isUploading === 'pulpLogoCircularUrl' ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
+                    {isUploading === 'pulpLogoCircularUrl' ? 'Enviando...' : 'Escolher Imagem'}
                   </button>
                   <input 
                     type="file" 
@@ -429,10 +518,11 @@ export default function Settings() {
                   <label className="block text-sm font-bold text-stone-700 mb-2 uppercase tracking-wider">Upload de Arquivo</label>
                   <button 
                     onClick={() => fileInputRefs.partnerLogoUrl.current?.click()}
-                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl hover:bg-stone-800 transition-colors"
+                    disabled={isUploading === 'partnerLogoUrl'}
+                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl hover:bg-stone-800 transition-colors disabled:bg-stone-400"
                   >
-                    <Upload size={18} />
-                    Escolher Imagem
+                    {isUploading === 'partnerLogoUrl' ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
+                    {isUploading === 'partnerLogoUrl' ? 'Enviando...' : 'Escolher Imagem'}
                   </button>
                   <input 
                     type="file" 
@@ -683,15 +773,35 @@ export default function Settings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-stone-700 mb-1">URL da Imagem</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={editingStoreProduct.fruitImageUrl}
-                      onChange={e => setEditingStoreProduct({...editingStoreProduct, fruitImageUrl: e.target.value})}
-                      className="w-full px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-amber-500"
-                      placeholder="https://images.unsplash.com/..."
-                    />
+                    <label className="block text-sm font-bold text-stone-700 mb-1">Imagem do Produto</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        required
+                        value={editingStoreProduct.fruitImageUrl}
+                        onChange={e => setEditingStoreProduct({...editingStoreProduct, fruitImageUrl: e.target.value})}
+                        className="flex-grow px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-amber-500"
+                        placeholder="URL da imagem..."
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = 'image/*';
+                          input.onchange = (e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0];
+                            if (file) handleItemImageUpload(file, (url) => setEditingStoreProduct({...editingStoreProduct, fruitImageUrl: url}));
+                          };
+                          input.click();
+                        }}
+                        disabled={isUploading === 'item'}
+                        className="p-2 bg-stone-100 rounded-xl text-stone-600 hover:bg-stone-200 transition-colors disabled:opacity-50"
+                        title="Upload de imagem"
+                      >
+                        {isUploading === 'item' ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} />}
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-stone-700 mb-1">Descrição</label>
@@ -763,28 +873,66 @@ export default function Settings() {
                       placeholder="Resumo da polpa..."
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-bold text-stone-700 mb-1">URL Imagem Fruta</label>
-                      <input 
-                        type="text" 
-                        required
-                        value={editingProduct.fruitImageUrl}
-                        onChange={e => setEditingProduct({...editingProduct, fruitImageUrl: e.target.value})}
-                        className="w-full px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-primary"
-                        placeholder="https://..."
-                      />
+                      <label className="block text-sm font-bold text-stone-700 mb-1">Imagem da Fruta</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          required
+                          value={editingProduct.fruitImageUrl}
+                          onChange={e => setEditingProduct({...editingProduct, fruitImageUrl: e.target.value})}
+                          className="flex-grow px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="URL..."
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            const input = document.createElement('input');
+                            input.type = 'file';
+                            input.accept = 'image/*';
+                            input.onchange = (e) => {
+                              const file = (e.target as HTMLInputElement).files?.[0];
+                              if (file) handleItemImageUpload(file, (url) => setEditingProduct({...editingProduct, fruitImageUrl: url}));
+                            };
+                            input.click();
+                          }}
+                          disabled={isUploading === 'item'}
+                          className="p-2 bg-stone-100 rounded-xl text-stone-600 hover:bg-stone-200 transition-colors disabled:opacity-50"
+                        >
+                          {isUploading === 'item' ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} />}
+                        </button>
+                      </div>
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-stone-700 mb-1">URL Imagem Polpa</label>
-                      <input 
-                        type="text" 
-                        required
-                        value={editingProduct.pulpImageUrl}
-                        onChange={e => setEditingProduct({...editingProduct, pulpImageUrl: e.target.value})}
-                        className="w-full px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-primary"
-                        placeholder="https://..."
-                      />
+                      <label className="block text-sm font-bold text-stone-700 mb-1">Imagem da Polpa</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          required
+                          value={editingProduct.pulpImageUrl}
+                          onChange={e => setEditingProduct({...editingProduct, pulpImageUrl: e.target.value})}
+                          className="flex-grow px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="URL..."
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            const input = document.createElement('input');
+                            input.type = 'file';
+                            input.accept = 'image/*';
+                            input.onchange = (e) => {
+                              const file = (e.target as HTMLInputElement).files?.[0];
+                              if (file) handleItemImageUpload(file, (url) => setEditingProduct({...editingProduct, pulpImageUrl: url}));
+                            };
+                            input.click();
+                          }}
+                          disabled={isUploading === 'item'}
+                          className="p-2 bg-stone-100 rounded-xl text-stone-600 hover:bg-stone-200 transition-colors disabled:opacity-50"
+                        >
+                          {isUploading === 'item' ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} />}
+                        </button>
+                      </div>
                     </div>
                   </div>
                   
@@ -862,6 +1010,35 @@ export default function Settings() {
                     />
                   </div>
                   <div>
+                    <label className="block text-sm font-bold text-stone-700 mb-1">Imagem da Notícia/Divulgação</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        value={editingNews.imageUrl || ''}
+                        onChange={e => setEditingNews({...editingNews, imageUrl: e.target.value})}
+                        className="flex-grow px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="URL da imagem..."
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = 'image/*';
+                          input.onchange = (e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0];
+                            if (file) handleItemImageUpload(file, (url) => setEditingNews({...editingNews, imageUrl: url}));
+                          };
+                          input.click();
+                        }}
+                        disabled={isUploading === 'item'}
+                        className="p-2 bg-stone-100 rounded-xl text-stone-600 hover:bg-stone-200 transition-colors disabled:opacity-50"
+                      >
+                        {isUploading === 'item' ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
                     <label className="block text-sm font-bold text-stone-700 mb-1">Local</label>
                     <input 
                       type="text" 
@@ -916,8 +1093,21 @@ export default function Settings() {
               Restaurar Padrões
             </button>
           </div>
+
+          {passwordHint && (
+            <div className="mt-8 p-4 bg-stone-100 rounded-2xl text-center">
+              <p className="text-xs text-stone-500 uppercase tracking-widest font-bold mb-1">Dica da Senha Atual</p>
+              <p className="text-stone-900 font-mono text-lg">{passwordHint}</p>
+              <p className="text-[10px] text-stone-400 mt-2 italic">Apenas administradores logados podem ver esta dica.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
+  } catch (e) {
+    console.error('Settings render error:', e);
+    setRenderError(e as Error);
+    return null;
+  }
 }

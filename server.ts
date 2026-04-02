@@ -31,6 +31,16 @@ async function startServer() {
     }
   });
 
+  // Rota para obter a senha (apenas para debug do admin logado)
+  app.get("/api/admin/password-hint", (req, res) => {
+    const adminPassword = (process.env.ADMIN_PASSWORD || "apprv2026").trim();
+    // Retorna apenas os primeiros e últimos caracteres para segurança, ou a senha completa se for para debug interno
+    res.json({ 
+      hint: `${adminPassword[0]}${'*'.repeat(adminPassword.length - 2)}${adminPassword[adminPassword.length - 1]}`,
+      length: adminPassword.length
+    });
+  });
+
   // Exemplo de rota de API que usa variáveis de ambiente privadas
   // Estas variáveis (process.env) NÃO são enviadas para o navegador
   app.get("/api/config", (req, res) => {

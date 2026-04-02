@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A product (pulp or store item)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "desc": { "type": "string" },
+        "fruitImageUrl": { "type": "string" },
+        "pulpImageUrl": { "type": "string" }
+      },
+      "required": ["id", "name", "desc"]
+    },
+    "NewsItem": {
+      "title": "NewsItem",
+      "description": "A news or event item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "desc": { "type": "string" },
+        "location": { "type": "string" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["id", "date", "title", "desc"]
+    },
+    "SiteConfig": {
+      "title": "SiteConfig",
+      "description": "Global site configuration",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "shortName": { "type": "string" },
+        "cnpj": { "type": "string" },
+        "foundationDate": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "email": { "type": "string" },
+        "facebook": { "type": "string" },
+        "instagram": { "type": "string" },
+        "googleMapsUrl": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "pulpLogoUrl": { "type": "string" },
+        "pulpLogoSecondaryUrl": { "type": "string" },
+        "pulpLogoCircularUrl": { "type": "string" },
+        "partnerLogoUrl": { "type": "string" },
+        "products": { "type": "array", "items": { "$ref": "Product" } },
+        "storeProducts": { "type": "array", "items": { "$ref": "Product" } },
+        "news": { "type": "array", "items": { "$ref": "NewsItem" } }
+      }
+    }
+  },
+  "firestore": {
+    "settings/main": {
+      "schema": "SiteConfig",
+      "description": "Main site configuration document"
+    }
+  }
+}

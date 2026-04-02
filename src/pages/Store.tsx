@@ -1,12 +1,31 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShoppingBag, CheckCircle2, Store as StoreIcon, Edit2, X, Save, Plus, Trash2, MessageCircle } from 'lucide-react';
+import { ShoppingBag, CheckCircle2, Store as StoreIcon, Edit2, X, Save, Plus, Trash2, MessageCircle, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
+import { storage } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export default function Store() {
   const { config, updateConfig, isAdmin } = useSettings();
   const [isEditing, setIsEditing] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleImageUpload = async (file: File, callback: (url: string) => void) => {
+    setIsUploading(true);
+    try {
+      const storageRef = ref(storage, `store/${Date.now()}_${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      callback(downloadURL);
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Erro ao fazer upload da imagem.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,15 +239,34 @@ export default function Store() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-stone-700 mb-1 uppercase tracking-wider">URL da Imagem</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={editingProduct.fruitImageUrl}
-                      onChange={e => setEditingProduct({...editingProduct, fruitImageUrl: e.target.value})}
-                      className="w-full px-4 py-3 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-amber-500"
-                      placeholder="https://images.unsplash.com/..."
-                    />
+                    <label className="block text-sm font-bold text-stone-700 mb-1 uppercase tracking-wider">Imagem do Produto</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        required
+                        value={editingProduct.fruitImageUrl}
+                        onChange={e => setEditingProduct({...editingProduct, fruitImageUrl: e.target.value})}
+                        className="flex-grow px-4 py-3 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-amber-500"
+                        placeholder="URL da imagem..."
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = 'image/*';
+                          input.onchange = (e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0];
+                            if (file) handleImageUpload(file, (url) => setEditingProduct({...editingProduct, fruitImageUrl: url}));
+                          };
+                          input.click();
+                        }}
+                        disabled={isUploading}
+                        className="p-3 bg-stone-100 rounded-xl text-stone-600 hover:bg-stone-200 transition-colors disabled:opacity-50"
+                      >
+                        {isUploading ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} />}
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="pt-4 flex gap-3">

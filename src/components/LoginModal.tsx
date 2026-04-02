@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Lock, ShieldCheck, AlertCircle } from 'lucide-react';
+import { X, Lock, ShieldCheck, AlertCircle, Chrome } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
+import { auth } from '../firebase';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -13,6 +15,27 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      if (result.user.email === 'apprvvirgolandia@gmail.com') {
+        setIsAdmin(true);
+        onClose();
+      } else {
+        setError('Este e-mail não tem permissão de administrador.');
+        await auth.signOut();
+      }
+    } catch (err) {
+      console.error('Google login error:', err);
+      setError('Erro ao fazer login com Google.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +103,23 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                   <span>{error}</span>
                 </motion.div>
               )}
+
+              <button 
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={isLoading}
+                className="w-full bg-white border border-stone-200 hover:bg-stone-50 text-stone-700 font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-sm active:scale-[0.98]"
+              >
+                <Chrome size={20} className="text-blue-500" />
+                Entrar com Google
+              </button>
+
+              <div className="relative flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-stone-100"></div>
+                </div>
+                <span className="relative px-4 bg-white text-xs text-stone-400 uppercase tracking-widest font-bold">ou use a senha</span>
+              </div>
 
               <div>
                 <label className="block text-xs font-bold text-stone-400 mb-2 uppercase tracking-widest">Senha de Acesso</label>

@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { siteConfig as initialConfig } from '../config/site';
+import { db, auth } from '../firebase';
+import { doc, getDoc, setDoc, onSnapshot, getDocFromServer } from 'firebase/firestore';
+import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 
 interface Product {
   id: string;
@@ -16,6 +19,7 @@ interface NewsItem {
   category: string;
   desc: string;
   location: string;
+  imageUrl?: string;
 }
 
 interface SiteConfig {
@@ -46,6 +50,7 @@ interface SettingsContextType {
   setIsAdmin: (isAdmin: boolean) => void;
   updateConfig: (newConfig: Partial<SiteConfig>) => void;
   resetConfig: () => void;
+  logout: () => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -60,7 +65,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // Merge initialConfig with parsed to ensure new default fields are present
         return { ...initialConfig, ...parsed };
       } catch (e) {
         console.error('Error parsing saved config:', e);
@@ -70,24 +74,90 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     return initialConfig;
   });
 
+  // Test Firestore connection
   useEffect(() => {
-    localStorage.setItem('site_config', JSON.stringify(config));
+    async function testConnection() {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration. The client is offline.");
+        }
+      }
+    }
+    testConnection();
+  }, []);
+
+  // Sync config to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('site_config', JSON.stringify(config));
+    } catch (e) {
+      console.error('Error saving config to localStorage:', e);
+    }
   }, [config]);
 
+  // Listen for Firestore changes
   useEffect(() => {
-    localStorage.setItem('is_admin', isAdmin.toString());
+    const unsub = onSnapshot(doc(db, 'settings', 'main'), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data() as SiteConfig;
+        setConfig(prev => ({ ...prev, ...data }));
+      }
+    }, (error) => {
+      console.error('Firestore sync error:', error);
+    });
+
+    return () => unsub();
+  }, []);
+
+  // Sync admin state to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('is_admin', isAdmin.toString());
+    } catch (e) {
+      console.error('Error saving admin state to localStorage:', e);
+    }
   }, [isAdmin]);
 
-  const updateConfig = (newConfig: Partial<SiteConfig>) => {
-    setConfig(prev => ({ ...prev, ...newConfig }));
+  const updateConfig = async (newConfig: Partial<SiteConfig>) => {
+    const updatedConfig = { ...config, ...newConfig };
+    setConfig(updatedConfig);
+    
+    // If admin, also update Firestore
+    if (isAdmin) {
+      try {
+        await setDoc(doc(db, 'settings', 'main'), updatedConfig);
+      } catch (error) {
+        console.error('Error updating Firestore:', error);
+      }
+    }
   };
 
-  const resetConfig = () => {
-    setConfig(initialConfig);
+  const resetConfig = async () => {
+    try {
+      localStorage.removeItem('site_config');
+      setConfig(initialConfig);
+      if (isAdmin) {
+        await setDoc(doc(db, 'settings', 'main'), initialConfig);
+      }
+    } catch (e) {
+      console.error('Error resetting config:', e);
+      setConfig(initialConfig);
+    }
+  };
+
+  const logout = () => {
+    setIsAdmin(false);
+    try {
+      localStorage.removeItem('is_admin');
+    } catch (e) {
+      console.error('Error during logout:', e);
+    }
   };
 
   return (
-    <SettingsContext.Provider value={{ config, isAdmin, setIsAdmin, updateConfig, resetConfig }}>
+    <SettingsContext.Provider value={{ config, isAdmin, setIsAdmin, updateConfig, resetConfig, logout }}>
       {children}
     </SettingsContext.Provider>
   );

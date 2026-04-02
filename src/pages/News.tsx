@@ -31,7 +31,7 @@ export default function News() {
                   {item.category}
                 </div>
                 <img 
-                  src={`https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&q=80&w=600&sig=${idx}`} 
+                  src={item.imageUrl || `https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&q=80&w=600&sig=${idx}`} 
                   alt={item.title}
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
