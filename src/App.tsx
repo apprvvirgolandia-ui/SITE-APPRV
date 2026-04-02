@@ -10,28 +10,31 @@ import Store from './pages/Store';
 import Contact from './pages/Contact';
 import Settings from './pages/Settings';
 import { SettingsProvider } from './context/SettingsContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
   return (
-    <SettingsProvider>
-      <Router>
-        <div className="min-h-screen flex flex-col bg-stone-50">
-          <Navbar />
-          <main className="flex-grow">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/sobre" element={<About />} />
-              <Route path="/noticias" element={<News />} />
-              <Route path="/produtos" element={<Products />} />
-              <Route path="/loja" element={<Store />} />
-              <Route path="/contato" element={<Contact />} />
-              <Route path="/admin" element={<Settings />} />
-            </Routes>
-          </main>
-          <Footer />
-          <WhatsAppButton />
-        </div>
-      </Router>
-    </SettingsProvider>
+    <ErrorBoundary>
+      <SettingsProvider>
+        <Router>
+          <div className="min-h-screen flex flex-col bg-stone-50">
+            <Navbar />
+            <main className="flex-grow">
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/sobre" element={<About />} />
+                <Route path="/noticias" element={<News />} />
+                <Route path="/produtos" element={<Products />} />
+                <Route path="/loja" element={<Store />} />
+                <Route path="/contato" element={<Contact />} />
+                <Route path="/admin" element={<Settings />} />
+              </Routes>
+            </main>
+            <Footer />
+            <WhatsAppButton />
+          </div>
+        </Router>
+      </SettingsProvider>
+    </ErrorBoundary>
   );
 }

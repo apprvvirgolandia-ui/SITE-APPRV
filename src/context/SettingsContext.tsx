@@ -108,8 +108,17 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'main'), (snapshot) => {
       if (snapshot.exists()) {
-        const data = snapshot.data() as SiteConfig;
-        setConfig(prev => ({ ...prev, ...data }));
+        const data = snapshot.data();
+        if (data && typeof data === 'object') {
+          setConfig(prev => {
+            const merged = { ...prev, ...data };
+            // Ensure arrays are always arrays to prevent rendering crashes
+            merged.products = Array.isArray(merged.products) ? merged.products : (prev.products || []);
+            merged.storeProducts = Array.isArray(merged.storeProducts) ? merged.storeProducts : (prev.storeProducts || []);
+            merged.news = Array.isArray(merged.news) ? merged.news : (prev.news || []);
+            return merged;
+          });
+        }
       }
     }, (error) => {
       console.error('Firestore sync error:', error);

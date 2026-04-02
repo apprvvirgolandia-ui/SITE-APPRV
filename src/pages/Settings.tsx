@@ -222,10 +222,9 @@ export default function Settings() {
     );
   }
 
-  try {
-    return (
-      <div className="py-16 bg-stone-50 min-h-screen">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+  return (
+    <div className="py-16 bg-stone-50 min-h-screen">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-800 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4 border border-amber-200">
             <Lock size={12} /> Área Restrita
@@ -748,34 +747,21 @@ export default function Settings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-stone-700 mb-1">Imagem do Produto</label>
-                    <div className="flex gap-2">
+                    <DropZone 
+                      label="Imagem do Produto"
+                      currentImageUrl={editingStoreProduct.fruitImageUrl}
+                      isUploading={isUploading === 'item'}
+                      onFileSelect={(file) => handleItemImageUpload(file, (url) => setEditingStoreProduct({...editingStoreProduct, fruitImageUrl: url}))}
+                    />
+                    <div className="mt-2">
+                      <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-1">Ou Link Externo (URL)</label>
                       <input 
                         type="text" 
-                        required
-                        value={editingStoreProduct.fruitImageUrl}
+                        value={editingStoreProduct.fruitImageUrl || ''}
                         onChange={e => setEditingStoreProduct({...editingStoreProduct, fruitImageUrl: e.target.value})}
-                        className="flex-grow px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-amber-500"
+                        className="w-full px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-amber-500 text-sm"
                         placeholder="URL da imagem..."
                       />
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          const input = document.createElement('input');
-                          input.type = 'file';
-                          input.accept = 'image/*';
-                          input.onchange = (e) => {
-                            const file = (e.target as HTMLInputElement).files?.[0];
-                            if (file) handleItemImageUpload(file, (url) => setEditingStoreProduct({...editingStoreProduct, fruitImageUrl: url}));
-                          };
-                          input.click();
-                        }}
-                        disabled={isUploading === 'item'}
-                        className="p-2 bg-stone-100 rounded-xl text-stone-600 hover:bg-stone-200 transition-colors disabled:opacity-50"
-                        title="Upload de imagem"
-                      >
-                        {isUploading === 'item' ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} />}
-                      </button>
                     </div>
                   </div>
                   <div>
@@ -1043,37 +1029,4 @@ export default function Settings() {
       </div>
     </div>
   );
-  } catch (e) {
-    console.error('Settings render error:', e);
-    return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border border-red-100">
-          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <AlertCircle size={32} />
-          </div>
-          <h2 className="text-xl font-bold text-stone-900 mb-2">Ops! Algo deu errado</h2>
-          <p className="text-stone-600 mb-6 text-sm leading-relaxed">
-            Ocorreu um erro ao carregar as configurações. Isso pode ser devido a dados corrompidos no navegador ou um erro de renderização.
-          </p>
-          <div className="flex flex-col gap-2">
-            <button 
-              onClick={() => {
-                localStorage.clear();
-                window.location.reload();
-              }}
-              className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-all"
-            >
-              Limpar Tudo e Recarregar
-            </button>
-            <Link 
-              to="/" 
-              className="text-stone-500 hover:text-stone-700 text-sm font-medium"
-            >
-              Voltar para o Início
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
 }
