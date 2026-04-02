@@ -4,6 +4,8 @@ import { ShoppingBag, CheckCircle2, Store as StoreIcon, Edit2, X, Save, Plus, Tr
 import { useSettings } from '../context/SettingsContext';
 import { storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { compressImage } from '../lib/imageUtils';
+import DropZone from '../components/DropZone';
 
 export default function Store() {
   const { config, updateConfig, isAdmin } = useSettings();
@@ -15,8 +17,11 @@ export default function Store() {
   const handleImageUpload = async (file: File, callback: (url: string) => void) => {
     setIsUploading(true);
     try {
+      // Compress image before upload
+      const compressedFile = await compressImage(file);
+      
       const storageRef = ref(storage, `store/${Date.now()}_${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
+      const snapshot = await uploadBytes(storageRef, compressedFile);
       const downloadURL = await getDownloadURL(snapshot.ref);
       callback(downloadURL);
     } catch (err) {
@@ -239,33 +244,21 @@ export default function Store() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-stone-700 mb-1 uppercase tracking-wider">Imagem do Produto</label>
-                    <div className="flex gap-2">
+                    <DropZone 
+                      label="Imagem do Produto"
+                      currentImageUrl={editingProduct.fruitImageUrl}
+                      isUploading={isUploading}
+                      onFileSelect={(file) => handleImageUpload(file, (url) => setEditingProduct({...editingProduct, fruitImageUrl: url}))}
+                    />
+                    <div className="mt-2">
+                      <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-1">Ou Link Externo (URL)</label>
                       <input 
                         type="text" 
-                        required
                         value={editingProduct.fruitImageUrl}
                         onChange={e => setEditingProduct({...editingProduct, fruitImageUrl: e.target.value})}
-                        className="flex-grow px-4 py-3 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-amber-500"
+                        className="w-full px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-amber-500 text-sm"
                         placeholder="URL da imagem..."
                       />
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          const input = document.createElement('input');
-                          input.type = 'file';
-                          input.accept = 'image/*';
-                          input.onchange = (e) => {
-                            const file = (e.target as HTMLInputElement).files?.[0];
-                            if (file) handleImageUpload(file, (url) => setEditingProduct({...editingProduct, fruitImageUrl: url}));
-                          };
-                          input.click();
-                        }}
-                        disabled={isUploading}
-                        className="p-3 bg-stone-100 rounded-xl text-stone-600 hover:bg-stone-200 transition-colors disabled:opacity-50"
-                      >
-                        {isUploading ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} />}
-                      </button>
                     </div>
                   </div>
                   

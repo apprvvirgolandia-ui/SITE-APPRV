@@ -151,9 +151,23 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 )}
               </button>
               
-              <p className="text-center text-stone-400 text-xs">
-                Esqueceu a senha? Entre em contato com o suporte técnico.
-              </p>
+              <div className="text-center">
+                <button 
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/admin/password-hint');
+                      const data = await res.json();
+                      setError(`Dica da senha: ${data.hint} (${data.length} caracteres)`);
+                    } catch (err) {
+                      setError('Não foi possível obter a dica da senha.');
+                    }
+                  }}
+                  className="text-stone-400 hover:text-stone-600 text-xs font-medium transition-colors"
+                >
+                  Esqueceu a senha? Ver dica
+                </button>
+              </div>
             </form>
           </motion.div>
         </div>

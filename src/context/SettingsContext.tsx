@@ -62,16 +62,23 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const [config, setConfig] = useState<SiteConfig>(() => {
     const saved = localStorage.getItem('site_config');
+    const baseConfig = { ...initialConfig };
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        return { ...initialConfig, ...parsed };
+        // Ensure arrays and strings exist to prevent crashes
+        const merged = { ...baseConfig, ...parsed };
+        merged.products = Array.isArray(merged.products) ? merged.products : baseConfig.products;
+        merged.storeProducts = Array.isArray(merged.storeProducts) ? merged.storeProducts : baseConfig.storeProducts;
+        merged.news = Array.isArray(merged.news) ? merged.news : baseConfig.news;
+        merged.whatsapp = typeof merged.whatsapp === 'string' ? merged.whatsapp : baseConfig.whatsapp;
+        return merged;
       } catch (e) {
         console.error('Error parsing saved config:', e);
-        return initialConfig;
+        return baseConfig;
       }
     }
-    return initialConfig;
+    return baseConfig;
   });
 
   // Test Firestore connection

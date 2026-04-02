@@ -4,6 +4,8 @@ import { ShoppingBag, CheckCircle2, Factory, Edit2, X, Save, Plus, Trash2, Messa
 import { useSettings } from '../context/SettingsContext';
 import { storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { compressImage } from '../lib/imageUtils';
+import DropZone from '../components/DropZone';
 
 export default function Products() {
   const { config, updateConfig, isAdmin } = useSettings();
@@ -15,8 +17,11 @@ export default function Products() {
   const handleImageUpload = async (file: File, callback: (url: string) => void) => {
     setIsUploading(true);
     try {
+      // Compress image before upload
+      const compressedFile = await compressImage(file);
+      
       const storageRef = ref(storage, `products/${Date.now()}_${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
+      const snapshot = await uploadBytes(storageRef, compressedFile);
       const downloadURL = await getDownloadURL(snapshot.ref);
       callback(downloadURL);
     } catch (err) {
@@ -278,65 +283,39 @@ export default function Products() {
                     />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <DropZone 
+                      label="Imagem da Fruta"
+                      currentImageUrl={editingProduct.fruitImageUrl}
+                      isUploading={isUploading}
+                      onFileSelect={(file) => handleImageUpload(file, (url) => setEditingProduct({...editingProduct, fruitImageUrl: url}))}
+                    />
+                    <DropZone 
+                      label="Imagem da Polpa"
+                      currentImageUrl={editingProduct.pulpImageUrl}
+                      isUploading={isUploading}
+                      onFileSelect={(file) => handleImageUpload(file, (url) => setEditingProduct({...editingProduct, pulpImageUrl: url}))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-bold text-stone-700 mb-1">Imagem da Fruta</label>
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          required
-                          value={editingProduct.fruitImageUrl}
-                          onChange={e => setEditingProduct({...editingProduct, fruitImageUrl: e.target.value})}
-                          className="flex-grow px-4 py-2 rounded-xl border border-stone-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                          placeholder="URL..."
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = 'image/*';
-                            input.onchange = (e) => {
-                              const file = (e.target as HTMLInputElement).files?.[0];
-                              if (file) handleImageUpload(file, (url) => setEditingProduct({...editingProduct, fruitImageUrl: url}));
-                            };
-                            input.click();
-                          }}
-                          disabled={isUploading}
-                          className="p-2 bg-stone-100 rounded-xl text-stone-600 hover:bg-stone-200 transition-colors disabled:opacity-50"
-                        >
-                          {isUploading ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} />}
-                        </button>
-                      </div>
+                      <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-1">URL Fruta (Opcional)</label>
+                      <input 
+                        type="text" 
+                        value={editingProduct.fruitImageUrl}
+                        onChange={e => setEditingProduct({...editingProduct, fruitImageUrl: e.target.value})}
+                        className="w-full px-4 py-2 rounded-xl border border-stone-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-sm"
+                        placeholder="URL..."
+                      />
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-stone-700 mb-1">Imagem da Polpa</label>
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          required
-                          value={editingProduct.pulpImageUrl}
-                          onChange={e => setEditingProduct({...editingProduct, pulpImageUrl: e.target.value})}
-                          className="w-full px-4 py-2 rounded-xl border border-stone-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                          placeholder="URL..."
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = 'image/*';
-                            input.onchange = (e) => {
-                              const file = (e.target as HTMLInputElement).files?.[0];
-                              if (file) handleImageUpload(file, (url) => setEditingProduct({...editingProduct, pulpImageUrl: url}));
-                            };
-                            input.click();
-                          }}
-                          disabled={isUploading}
-                          className="p-2 bg-stone-100 rounded-xl text-stone-600 hover:bg-stone-200 transition-colors disabled:opacity-50"
-                        >
-                          {isUploading ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} />}
-                        </button>
-                      </div>
+                      <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-1">URL Polpa (Opcional)</label>
+                      <input 
+                        type="text" 
+                        value={editingProduct.pulpImageUrl}
+                        onChange={e => setEditingProduct({...editingProduct, pulpImageUrl: e.target.value})}
+                        className="w-full px-4 py-2 rounded-xl border border-stone-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-sm"
+                        placeholder="URL..."
+                      />
                     </div>
                   </div>
                   

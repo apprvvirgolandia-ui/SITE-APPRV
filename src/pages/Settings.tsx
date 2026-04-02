@@ -6,10 +6,11 @@ import { Link } from 'react-router-dom';
 import LoginModal from '../components/LoginModal';
 import { storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { compressImage } from '../lib/imageUtils';
+import DropZone from '../components/DropZone';
 
 export default function Settings() {
   const { config, updateConfig, resetConfig, isAdmin, logout } = useSettings();
-  const [renderError, setRenderError] = useState<Error | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,8 +51,11 @@ export default function Settings() {
       setError(null);
 
       try {
+        // Compress image before upload
+        const compressedFile = await compressImage(file);
+        
         const storageRef = ref(storage, `site/${field}_${Date.now()}`);
-        const snapshot = await uploadBytes(storageRef, file);
+        const snapshot = await uploadBytes(storageRef, compressedFile);
         const downloadURL = await getDownloadURL(snapshot.ref);
         
         updateConfig({ [field]: downloadURL });
@@ -71,8 +75,11 @@ export default function Settings() {
     setError(null);
 
     try {
+      // Compress image before upload
+      const compressedFile = await compressImage(file);
+      
       const storageRef = ref(storage, `items/${Date.now()}_${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
+      const snapshot = await uploadBytes(storageRef, compressedFile);
       const downloadURL = await getDownloadURL(snapshot.ref);
       callback(downloadURL);
     } catch (err) {
@@ -145,7 +152,7 @@ export default function Settings() {
     if (index >= 0) {
       newProducts[index] = editingProduct;
     } else {
-      newProducts.push({ ...editingProduct, id: 'p' + Date.now().toString() });
+      newProducts.push({ ...editingProduct, id: Date.now().toString() });
     }
 
     updateConfig({ products: newProducts });
@@ -167,42 +174,7 @@ export default function Settings() {
     setTimeout(() => setIsSaved(false), 3000);
   };
 
-  // Catch rendering errors
-  if (renderError) {
-    return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border border-red-100">
-          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <AlertCircle size={32} />
-          </div>
-          <h2 className="text-xl font-bold text-stone-900 mb-2">Ops! Algo deu errado</h2>
-          <p className="text-stone-600 mb-6 text-sm">
-            Ocorreu um erro ao carregar as configurações. Isso pode ser devido a dados corrompidos no navegador.
-          </p>
-          <div className="flex flex-col gap-2">
-            <button 
-              onClick={() => {
-                localStorage.clear();
-                window.location.reload();
-              }}
-              className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-all"
-            >
-              Limpar Tudo e Recarregar
-            </button>
-            <button 
-              onClick={() => setRenderError(null)}
-              className="text-stone-500 hover:text-stone-700 text-sm font-medium"
-            >
-              Tentar Novamente
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  try {
-    if (!isAdmin) {
+  if (!isAdmin) {
     return (
       <div className="min-h-screen bg-stone-900 flex items-center justify-center p-4">
         <motion.div 
@@ -250,9 +222,10 @@ export default function Settings() {
     );
   }
 
-  return (
-    <div className="py-16 bg-stone-50 min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+  try {
+    return (
+      <div className="py-16 bg-stone-50 min-h-screen">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-800 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4 border border-amber-200">
             <Lock size={12} /> Área Restrita
@@ -338,33 +311,24 @@ export default function Settings() {
               <div className="w-2 h-8 bg-primary rounded-full" />
               Logo Principal (APPRV)
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-              <div className="bg-stone-100 p-6 rounded-2xl flex items-center justify-center min-h-[160px]">
-                <img src={config.logoUrl} alt="Preview Logo" className="max-h-32 object-contain" referrerPolicy="no-referrer" />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+              <DropZone 
+                label="Logo Principal"
+                currentImageUrl={config.logoUrl}
+                isUploading={isUploading === 'logoUrl'}
+                onFileSelect={(file) => {
+                  const input = fileInputRefs.logoUrl.current;
+                  if (input) {
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    input.files = dataTransfer.files;
+                    handleFileUpload('logoUrl');
+                  }
+                }}
+              />
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-stone-700 mb-2 uppercase tracking-wider">Upload de Arquivo</label>
-                  <div className="flex gap-2">
-                    <input 
-                      type="file" 
-                      ref={fileInputRefs.logoUrl}
-                      className="hidden" 
-                      accept="image/*"
-                      onChange={() => handleFileUpload('logoUrl')}
-                    />
-                    <button 
-                      onClick={() => fileInputRefs.logoUrl.current?.click()}
-                      disabled={isUploading === 'logoUrl'}
-                      className="flex-grow flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl hover:bg-stone-800 transition-colors disabled:bg-stone-400"
-                    >
-                      {isUploading === 'logoUrl' ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-                      {isUploading === 'logoUrl' ? 'Enviando...' : 'Escolher Imagem'}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-stone-700 mb-2 uppercase tracking-wider">Ou Link Externo (URL)</label>
+                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-2">Ou Link Externo (URL)</label>
                   <input 
                     type="text" 
                     value={config.logoUrl}
@@ -373,6 +337,13 @@ export default function Settings() {
                     placeholder="https://exemplo.com/logo.png"
                   />
                 </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRefs.logoUrl}
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={() => handleFileUpload('logoUrl')}
+                />
               </div>
             </div>
           </div>
@@ -383,38 +354,39 @@ export default function Settings() {
               <div className="w-2 h-8 bg-secondary rounded-full" />
               Logo de Polpas 1 (Virgo Fruit)
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-              <div className="bg-stone-100 p-6 rounded-2xl flex items-center justify-center min-h-[160px]">
-                <img src={config.pulpLogoUrl} alt="Preview Pulp Logo" className="max-h-32 object-contain" referrerPolicy="no-referrer" />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+              <DropZone 
+                label="Logo Virgo Fruit"
+                currentImageUrl={config.pulpLogoUrl}
+                isUploading={isUploading === 'pulpLogoUrl'}
+                onFileSelect={(file) => {
+                  const input = fileInputRefs.pulpLogoUrl.current;
+                  if (input) {
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    input.files = dataTransfer.files;
+                    handleFileUpload('pulpLogoUrl');
+                  }
+                }}
+              />
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-stone-700 mb-2 uppercase tracking-wider">Upload de Arquivo</label>
-                  <button 
-                    onClick={() => fileInputRefs.pulpLogoUrl.current?.click()}
-                    disabled={isUploading === 'pulpLogoUrl'}
-                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl hover:bg-stone-800 transition-colors disabled:bg-stone-400"
-                  >
-                    {isUploading === 'pulpLogoUrl' ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-                    {isUploading === 'pulpLogoUrl' ? 'Enviando...' : 'Escolher Imagem'}
-                  </button>
-                  <input 
-                    type="file" 
-                    ref={fileInputRefs.pulpLogoUrl}
-                    className="hidden" 
-                    accept="image/*"
-                    onChange={() => handleFileUpload('pulpLogoUrl')}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-stone-700 mb-2 uppercase tracking-wider">Ou Link Externo (URL)</label>
+                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-2">Ou Link Externo (URL)</label>
                   <input 
                     type="text" 
                     value={config.pulpLogoUrl}
                     onChange={(e) => handleUrlChange('pulpLogoUrl', e.target.value)}
                     className="w-full p-3 rounded-xl border border-stone-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                    placeholder="https://exemplo.com/logo.png"
                   />
                 </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRefs.pulpLogoUrl}
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={() => handleFileUpload('pulpLogoUrl')}
+                />
               </div>
             </div>
           </div>
@@ -425,38 +397,39 @@ export default function Settings() {
               <div className="w-2 h-8 bg-emerald-500 rounded-full" />
               Logo de Polpas 2 (Secundária)
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-              <div className="bg-stone-100 p-6 rounded-2xl flex items-center justify-center min-h-[160px]">
-                <img src={config.pulpLogoSecondaryUrl} alt="Preview Pulp Logo 2" className="max-h-32 object-contain" referrerPolicy="no-referrer" />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+              <DropZone 
+                label="Logo Secundária"
+                currentImageUrl={config.pulpLogoSecondaryUrl}
+                isUploading={isUploading === 'pulpLogoSecondaryUrl'}
+                onFileSelect={(file) => {
+                  const input = fileInputRefs.pulpLogoSecondaryUrl.current;
+                  if (input) {
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    input.files = dataTransfer.files;
+                    handleFileUpload('pulpLogoSecondaryUrl');
+                  }
+                }}
+              />
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-stone-700 mb-2 uppercase tracking-wider">Upload de Arquivo</label>
-                  <button 
-                    onClick={() => fileInputRefs.pulpLogoSecondaryUrl.current?.click()}
-                    disabled={isUploading === 'pulpLogoSecondaryUrl'}
-                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl hover:bg-stone-800 transition-colors disabled:bg-stone-400"
-                  >
-                    {isUploading === 'pulpLogoSecondaryUrl' ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-                    {isUploading === 'pulpLogoSecondaryUrl' ? 'Enviando...' : 'Escolher Imagem'}
-                  </button>
-                  <input 
-                    type="file" 
-                    ref={fileInputRefs.pulpLogoSecondaryUrl}
-                    className="hidden" 
-                    accept="image/*"
-                    onChange={() => handleFileUpload('pulpLogoSecondaryUrl')}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-stone-700 mb-2 uppercase tracking-wider">Ou Link Externo (URL)</label>
+                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-2">Ou Link Externo (URL)</label>
                   <input 
                     type="text" 
                     value={config.pulpLogoSecondaryUrl}
                     onChange={(e) => handleUrlChange('pulpLogoSecondaryUrl', e.target.value)}
                     className="w-full p-3 rounded-xl border border-stone-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                    placeholder="https://exemplo.com/logo.png"
                   />
                 </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRefs.pulpLogoSecondaryUrl}
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={() => handleFileUpload('pulpLogoSecondaryUrl')}
+                />
               </div>
             </div>
           </div>
@@ -467,38 +440,39 @@ export default function Settings() {
               <div className="w-2 h-8 bg-accent rounded-full" />
               Logo Circular (Selo de Qualidade)
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-              <div className="bg-stone-100 p-6 rounded-2xl flex items-center justify-center min-h-[160px]">
-                <img src={config.pulpLogoCircularUrl} alt="Preview Circular Logo" className="max-h-32 object-contain" referrerPolicy="no-referrer" />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+              <DropZone 
+                label="Logo Circular"
+                currentImageUrl={config.pulpLogoCircularUrl}
+                isUploading={isUploading === 'pulpLogoCircularUrl'}
+                onFileSelect={(file) => {
+                  const input = fileInputRefs.pulpLogoCircularUrl.current;
+                  if (input) {
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    input.files = dataTransfer.files;
+                    handleFileUpload('pulpLogoCircularUrl');
+                  }
+                }}
+              />
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-stone-700 mb-2 uppercase tracking-wider">Upload de Arquivo</label>
-                  <button 
-                    onClick={() => fileInputRefs.pulpLogoCircularUrl.current?.click()}
-                    disabled={isUploading === 'pulpLogoCircularUrl'}
-                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl hover:bg-stone-800 transition-colors disabled:bg-stone-400"
-                  >
-                    {isUploading === 'pulpLogoCircularUrl' ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-                    {isUploading === 'pulpLogoCircularUrl' ? 'Enviando...' : 'Escolher Imagem'}
-                  </button>
-                  <input 
-                    type="file" 
-                    ref={fileInputRefs.pulpLogoCircularUrl}
-                    className="hidden" 
-                    accept="image/*"
-                    onChange={() => handleFileUpload('pulpLogoCircularUrl')}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-stone-700 mb-2 uppercase tracking-wider">Ou Link Externo (URL)</label>
+                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-2">Ou Link Externo (URL)</label>
                   <input 
                     type="text" 
                     value={config.pulpLogoCircularUrl}
                     onChange={(e) => handleUrlChange('pulpLogoCircularUrl', e.target.value)}
                     className="w-full p-3 rounded-xl border border-stone-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                    placeholder="https://exemplo.com/logo.png"
                   />
                 </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRefs.pulpLogoCircularUrl}
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={() => handleFileUpload('pulpLogoCircularUrl')}
+                />
               </div>
             </div>
           </div>
@@ -509,38 +483,39 @@ export default function Settings() {
               <div className="w-2 h-8 bg-stone-400 rounded-full" />
               Logo de Parceria (Cooperativa)
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-              <div className="bg-stone-100 p-6 rounded-2xl flex items-center justify-center min-h-[160px]">
-                <img src={config.partnerLogoUrl} alt="Preview Partner Logo" className="max-h-32 object-contain" referrerPolicy="no-referrer" />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+              <DropZone 
+                label="Logo Parceiro"
+                currentImageUrl={config.partnerLogoUrl}
+                isUploading={isUploading === 'partnerLogoUrl'}
+                onFileSelect={(file) => {
+                  const input = fileInputRefs.partnerLogoUrl.current;
+                  if (input) {
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    input.files = dataTransfer.files;
+                    handleFileUpload('partnerLogoUrl');
+                  }
+                }}
+              />
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-stone-700 mb-2 uppercase tracking-wider">Upload de Arquivo</label>
-                  <button 
-                    onClick={() => fileInputRefs.partnerLogoUrl.current?.click()}
-                    disabled={isUploading === 'partnerLogoUrl'}
-                    className="w-full flex items-center justify-center gap-2 bg-stone-900 text-white py-3 rounded-xl hover:bg-stone-800 transition-colors disabled:bg-stone-400"
-                  >
-                    {isUploading === 'partnerLogoUrl' ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-                    {isUploading === 'partnerLogoUrl' ? 'Enviando...' : 'Escolher Imagem'}
-                  </button>
-                  <input 
-                    type="file" 
-                    ref={fileInputRefs.partnerLogoUrl}
-                    className="hidden" 
-                    accept="image/*"
-                    onChange={() => handleFileUpload('partnerLogoUrl')}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-stone-700 mb-2 uppercase tracking-wider">Ou Link Externo (URL)</label>
+                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-2">Ou Link Externo (URL)</label>
                   <input 
                     type="text" 
                     value={config.partnerLogoUrl}
                     onChange={(e) => handleUrlChange('partnerLogoUrl', e.target.value)}
                     className="w-full p-3 rounded-xl border border-stone-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                    placeholder="https://exemplo.com/logo.png"
                   />
                 </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRefs.partnerLogoUrl}
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={() => handleFileUpload('partnerLogoUrl')}
+                />
               </div>
             </div>
           </div>
@@ -598,7 +573,7 @@ export default function Settings() {
                   <div className="bg-stone-100 px-4 py-3 rounded-xl text-stone-500 font-mono">55</div>
                   <input 
                     type="text" 
-                    value={config.whatsapp.replace(/^55/, '')}
+                    value={(config.whatsapp || '').replace(/^55/, '')}
                     onChange={(e) => handleUrlChange('whatsapp', '55' + e.target.value.replace(/\D/g, ''))}
                     className="flex-grow p-3 rounded-xl border border-stone-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
                     placeholder="33999275984"
@@ -874,65 +849,39 @@ export default function Settings() {
                     />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <DropZone 
+                      label="Imagem da Fruta"
+                      currentImageUrl={editingProduct.fruitImageUrl}
+                      isUploading={isUploading === 'item'}
+                      onFileSelect={(file) => handleItemImageUpload(file, (url) => setEditingProduct({...editingProduct, fruitImageUrl: url}))}
+                    />
+                    <DropZone 
+                      label="Imagem da Polpa"
+                      currentImageUrl={editingProduct.pulpImageUrl}
+                      isUploading={isUploading === 'item'}
+                      onFileSelect={(file) => handleItemImageUpload(file, (url) => setEditingProduct({...editingProduct, pulpImageUrl: url}))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-bold text-stone-700 mb-1">Imagem da Fruta</label>
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          required
-                          value={editingProduct.fruitImageUrl}
-                          onChange={e => setEditingProduct({...editingProduct, fruitImageUrl: e.target.value})}
-                          className="flex-grow px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-primary"
-                          placeholder="URL..."
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = 'image/*';
-                            input.onchange = (e) => {
-                              const file = (e.target as HTMLInputElement).files?.[0];
-                              if (file) handleItemImageUpload(file, (url) => setEditingProduct({...editingProduct, fruitImageUrl: url}));
-                            };
-                            input.click();
-                          }}
-                          disabled={isUploading === 'item'}
-                          className="p-2 bg-stone-100 rounded-xl text-stone-600 hover:bg-stone-200 transition-colors disabled:opacity-50"
-                        >
-                          {isUploading === 'item' ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} />}
-                        </button>
-                      </div>
+                      <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-1">URL Fruta (Opcional)</label>
+                      <input 
+                        type="text" 
+                        value={editingProduct.fruitImageUrl}
+                        onChange={e => setEditingProduct({...editingProduct, fruitImageUrl: e.target.value})}
+                        className="w-full px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-primary text-sm"
+                        placeholder="URL..."
+                      />
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-stone-700 mb-1">Imagem da Polpa</label>
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          required
-                          value={editingProduct.pulpImageUrl}
-                          onChange={e => setEditingProduct({...editingProduct, pulpImageUrl: e.target.value})}
-                          className="flex-grow px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-primary"
-                          placeholder="URL..."
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = 'image/*';
-                            input.onchange = (e) => {
-                              const file = (e.target as HTMLInputElement).files?.[0];
-                              if (file) handleItemImageUpload(file, (url) => setEditingProduct({...editingProduct, pulpImageUrl: url}));
-                            };
-                            input.click();
-                          }}
-                          disabled={isUploading === 'item'}
-                          className="p-2 bg-stone-100 rounded-xl text-stone-600 hover:bg-stone-200 transition-colors disabled:opacity-50"
-                        >
-                          {isUploading === 'item' ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} />}
-                        </button>
-                      </div>
+                      <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-1">URL Polpa (Opcional)</label>
+                      <input 
+                        type="text" 
+                        value={editingProduct.pulpImageUrl}
+                        onChange={e => setEditingProduct({...editingProduct, pulpImageUrl: e.target.value})}
+                        className="w-full px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-primary text-sm"
+                        placeholder="URL..."
+                      />
                     </div>
                   </div>
                   
@@ -1010,32 +959,21 @@ export default function Settings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-stone-700 mb-1">Imagem da Notícia/Divulgação</label>
-                    <div className="flex gap-2">
+                    <DropZone 
+                      label="Imagem da Notícia/Divulgação"
+                      currentImageUrl={editingNews.imageUrl}
+                      isUploading={isUploading === 'item'}
+                      onFileSelect={(file) => handleItemImageUpload(file, (url) => setEditingNews({...editingNews, imageUrl: url}))}
+                    />
+                    <div className="mt-2">
+                      <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-1">Ou Link Externo (URL)</label>
                       <input 
                         type="text" 
                         value={editingNews.imageUrl || ''}
                         onChange={e => setEditingNews({...editingNews, imageUrl: e.target.value})}
-                        className="flex-grow px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full px-4 py-2 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-primary text-sm"
                         placeholder="URL da imagem..."
                       />
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          const input = document.createElement('input');
-                          input.type = 'file';
-                          input.accept = 'image/*';
-                          input.onchange = (e) => {
-                            const file = (e.target as HTMLInputElement).files?.[0];
-                            if (file) handleItemImageUpload(file, (url) => setEditingNews({...editingNews, imageUrl: url}));
-                          };
-                          input.click();
-                        }}
-                        disabled={isUploading === 'item'}
-                        className="p-2 bg-stone-100 rounded-xl text-stone-600 hover:bg-stone-200 transition-colors disabled:opacity-50"
-                      >
-                        {isUploading === 'item' ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} />}
-                      </button>
                     </div>
                   </div>
                   <div>
@@ -1107,7 +1045,35 @@ export default function Settings() {
   );
   } catch (e) {
     console.error('Settings render error:', e);
-    setRenderError(e as Error);
-    return null;
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border border-red-100">
+          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <AlertCircle size={32} />
+          </div>
+          <h2 className="text-xl font-bold text-stone-900 mb-2">Ops! Algo deu errado</h2>
+          <p className="text-stone-600 mb-6 text-sm leading-relaxed">
+            Ocorreu um erro ao carregar as configurações. Isso pode ser devido a dados corrompidos no navegador ou um erro de renderização.
+          </p>
+          <div className="flex flex-col gap-2">
+            <button 
+              onClick={() => {
+                localStorage.clear();
+                window.location.reload();
+              }}
+              className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-all"
+            >
+              Limpar Tudo e Recarregar
+            </button>
+            <Link 
+              to="/" 
+              className="text-stone-500 hover:text-stone-700 text-sm font-medium"
+            >
+              Voltar para o Início
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 }
